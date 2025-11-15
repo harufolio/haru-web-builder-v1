@@ -161,14 +161,15 @@ Current checkpoint: X (continuing until minimum 30 reached)
 ```
 analysis/
 ├── web-pipeline/
-│   ├── 01_contents_web.json    ← AI writes analysis results here
-│   ├── 02_style_web.json       ← AI writes design tokens here
-│   ├── 03_integrate_web.json   ← AI writes integrated spec here
+│   ├── 00_analysis_note.txt       ← Real-time checkpoint logging (NEW)
+│   ├── 01_contents_web.json       ← AI writes analysis results here
+│   ├── 02_style_web.json          ← AI writes design tokens here
+│   ├── 03_integrate_web.json      ← AI writes integrated spec here
 │   └── generators/
 │       └── 04_generate_tailwind.json
 ```
 
-**Workflow:** User provides URL → AI explores → Writes to analysis files → Generates code
+**Workflow:** User provides URL → AI explores (writes to 00_analysis_note.txt) → Reads notes → Generates JSON files → Generates code
 
 ### 4. Output File Locations
 
@@ -277,13 +278,34 @@ const significantChange = structuralChange || visualChange;
 if (significantChange) {
   console.log(`✅ 체크포인트 ${checkpointIndex} 완료 - ${structuralChange ? '구조 변화' : '시각적 변화'} 감지`);
   
-  // Perform full analysis
-  // - Visual: Colors, typography, spacing, design tokens
-  // - Animation: Fade-in/out, slide-in, zoom, parallax
-  // - Element Visibility: New/removed elements
-  // - State Changes: Header, sticky elements, progress bars
+  // 4-1. MANDATORY: Immediate write to 00_analysis_note.txt (REAL-TIME APPEND)
+  // This must happen BEFORE any further analysis to ensure progressive logging
+  const checkpointHeader = `
+=== CHECKPOINT ${checkpointIndex} ===
+Timestamp: ${new Date().toISOString()}
+Viewport: Desktop 1440x900
+Scroll Position: ~${checkpointIndex * 200}px
+Change Type: ${structuralChange ? 'Structural' : 'Visual'}
+
+📋 STRUCTURAL CHANGES:
+- New Elements (${newElements.length}): ${newElements.slice(0, 5).join(', ')}
+- Removed Elements (${removedElements.length}): ${removedElements.slice(0, 5).join(', ')}
+`;
+
+  await appendToAnalysisNote(checkpointHeader);
   
-  // 4-1. Check for section transition or animation
+  // 4-2. Analyze screenshot and append visual analysis immediately
+  const visualAnalysis = `
+🎨 VISUAL ANALYSIS:
+- Colors: [AI analyzes screenshot: e.g., "Blue gradient #1E3A8A → #3B82F6"]
+- Typography: [AI analyzes: e.g., "Heading 48px, weight 700, 'Noto Sans KR'"]
+- Layout: [AI analyzes: e.g., "3-column grid with 24px gap"]
+- Spacing: [AI analyzes: e.g., "Section padding 80px vertical, 0 horizontal"]
+`;
+
+  await appendToAnalysisNote(visualAnalysis);
+  
+  // 4-3. Check for animations and document immediately if detected
   const isSectionTransition = newElements.length >= 5 || 
                               removedElements.length >= 5 ||
                               newElements.some(sel => sel.includes('section'));
@@ -291,15 +313,38 @@ if (significantChange) {
   if (isSectionTransition) {
     console.log("🎬 섹션 전환 감지 - 애니메이션 프레임 추가 캡처");
     
+    const animationHeader = `
+🎬 ANIMATION DETECTION:
+`;
+    await appendToAnalysisNote(animationHeader);
+    
     // Capture animation frames (3-5 additional screenshots)
     for (let frame = 0; frame < 3; frame++) {
       await new Promise(resolve => setTimeout(resolve, 400));
       await mcp_kapture_screenshot({ tabId });
       console.log(`   프레임 ${frame+1}/3 캡처`);
     }
+    
+    // Analyze and document animation details
+    const animationDetails = `
+- Subject: [AI observes: e.g., "Container ship with red cargo"]
+- Visual Description: [AI describes: e.g., "Blue ship body, 3 red containers on deck"]
+- Observed Behavior: [AI documents: e.g., "Moves left to right during scroll, ~1600px travel"]
+- Trigger: [AI identifies: e.g., "scroll position 0-100%"]
+- Technical Details: [AI infers: e.g., "GSAP ScrollTrigger with scrub:true, parallax effect"]
+- Property Changes: [AI calculates: e.g., "translateX: -100px → 1500px, duration matches scroll"]
+- Implementation Hint: [AI suggests: e.g., "gsap.to(ship, { x: 15, scrollTrigger: { scrub: true } })"]
+`;
+    
+    await appendToAnalysisNote(animationDetails);
+  } else {
+    // No animation detected
+    await appendToAnalysisNote(`
+🎬 ANIMATION DETECTION: None detected in this viewport
+`);
   }
   
-  // 4-2. MANDATORY: Test interactive elements (CANNOT SKIP)
+  // 4-4. MANDATORY: Test interactive elements and log results immediately
   console.log("🖱️ 인터랙티브 요소 테스트 시작...");
   
   const interactiveElements = await mcp_kapture_elements({ 
@@ -310,6 +355,7 @@ if (significantChange) {
   
   const elementsToTest = interactiveElements.slice(0, 10);
   let testedCount = 0;
+  const interactionResults = [];
   
   for (const element of elementsToTest) {
     const selector = element.selector || element.xpath;
@@ -323,12 +369,14 @@ if (significantChange) {
       if (element.tagName === 'BUTTON' || element.tagName === 'A' || element.role === 'button') {
         await mcp_kapture_click({ tabId, selector });
         await mcp_kapture_screenshot({ tabId });
+        interactionResults.push(`${element.tagName}:hover+click`);
       }
       
       // Test focus (for form inputs)
       if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
         await mcp_kapture_click({ tabId, selector });
         await mcp_kapture_screenshot({ tabId });
+        interactionResults.push(`${element.tagName}:focus`);
       }
       
       testedCount++;
@@ -340,6 +388,17 @@ if (significantChange) {
   
   console.log(`✅ 인터랙션 테스트 완료: ${testedCount}개`);
   
+  // 4-5. Append interaction test results immediately
+  const interactionLog = `
+🖱️ INTERACTIVE ELEMENTS TESTED (${testedCount} total):
+${interactionResults.length > 0 ? interactionResults.map(r => `- ${r}`).join('\n') : '- No interactive elements found in this viewport'}
+
+---
+`;
+
+  await appendToAnalysisNote(interactionLog);
+  
+  // 4-6. Update tracking variables
   checkpointIndex++;
   previousVisibleElements = currentElementSet;
   consecutiveNoChangeCount = 0;
@@ -350,64 +409,8 @@ if (significantChange) {
 }
 ```
 
-**5. � Logging (MANDATORY)**
-- **Automated batch testing of ALL interactive elements:**
-  ```javascript
-  // Only test if this is a checkpoint (significantChange = true)
-  if (significantChange) {
-    // Step 1: Find all interactive elements in current viewport
-    const interactiveElements = await mcp_kapture_elements({ 
-      tabId, 
-      selector: "button, a, input, textarea, select, [role='button'], [onclick]",
-      visible: "true"
-    });
-    
-    // Step 2: Test each element (limit to 10 per checkpoint to avoid slowdown)
-    const elementsToTest = interactiveElements.slice(0, 10);
-    
-    for (const element of elementsToTest) {
-      // Get unique selector for this element
-      const selector = element.selector || element.xpath;
-      
-      // Test hover effect
-      await mcp_kapture_hover({ tabId, selector });
-      await mcp_kapture_screenshot({ tabId }); // Capture hover state
-      
-      // Test click (for buttons, links, form fields)
-      if (element.tagName === 'BUTTON' || element.tagName === 'A' || element.role === 'button') {
-        await mcp_kapture_click({ tabId, selector });
-        await mcp_kapture_screenshot({ tabId }); // Capture clicked state
-      }
-      
-      // Test focus (for form inputs - DO NOT submit)
-      if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-        await mcp_kapture_click({ tabId, selector });
-        await mcp_kapture_screenshot({ tabId }); // Capture focus state
-      }
-      
-      // Log interaction result
-      console.log(`Tested: ${element.tagName} - ${selector}`);
-    }
-  }
-  ```
-- **Capture before/after states for ALL tested elements**
-- **Document state changes (color, size, position, visibility) in analysis**
-- **If more than 10 interactive elements exist, prioritize: buttons > links > inputs**
-
-**6. 📝 Logging (MANDATORY)**
-```json
-{
-  "checkpoint": "X",
-  "changeType": "structural|visual|none",
-  "visualChanges": ["Header background changed", "Card fade-in triggered"],
-  "animations": [{"type": "fade-in", "element": ".card", "duration": "300ms"}],
-  "comparison": "vs previous checkpoint: New card visible",
-  "interactionsTested": ["button.cta:hover", "nav-link:click", "input.email:focus"]
-}
-```
-
-**7. ➡️ Next Checkpoint**
-- ONLY proceed after steps 1-6 complete
+**5. ➡️ Next Checkpoint**
+- ONLY proceed after steps 1-4 complete
 - Report to user: "✅ 체크포인트 X 완료. 다음 체크포인트로 진행합니다."
 
 ### Completion Criteria
@@ -493,15 +496,33 @@ await mcp_kapture_keypress({ tabId, key: "ArrowDown" }); // Primary scroll (smal
 
 ### Web Pipeline
 
+#### 00. Real-Time Analysis Logging (NEW)
+- **File:** `analysis/web-pipeline/00_analysis_note.txt`
+- **Purpose:** Capture detailed observations during web exploration
+- **Content:** Checkpoint-by-checkpoint documentation of visual elements, animations, interactions
+- **Usage:** Primary reference for generating 01_contents and 02_style JSON files
+- **Format:**
+  ```
+  === CHECKPOINT X ===
+  - Structural Changes: New/removed elements
+  - Visual Analysis: Colors, typography, layout, spacing
+  - Animation Detection: Subject, behavior, trigger, implementation hints
+  - Interactive Elements: Hover/click/focus test results
+  ```
+
 #### 01. Web Content Analysis
+- **Input:** `00_analysis_note.txt` (accumulated observations)
 - Site structure, SEO, navigation, interactive elements
 - Output: Page structure, navigation hierarchy, metadata
 - **Critical:** Preserve ALL observed details (animations, interactions, complex features)
+- **Method:** Read 00_analysis_note.txt → Extract structural/content data → Generate JSON
 
 #### 02. Web Style Analysis
+- **Input:** `00_analysis_note.txt` (accumulated observations)
 - Responsive design tokens, component states, CSS specifications
 - Output: Color system, typography, spacing, component patterns
 - **Critical:** Document animation types, scroll behaviors, 3D effects with full context
+- **Method:** Read 00_analysis_note.txt → Extract visual/style data → Generate JSON
 
 #### 03. Web Integration
 - Merge content + style into complete developer spec
@@ -520,33 +541,112 @@ await mcp_kapture_keypress({ tabId, key: "ArrowDown" }); // Primary scroll (smal
 **Issue:** AI analyzes in detail ("ship moves in 3D scroll animation") but simplifies in JSON ("3D animation")  
 **Impact:** Integration JSON lacks implementation details → Generated code is incomplete
 
-### Solution: 8-Field Documentation Template
+### Solution: Implementation-Ready Descriptions
 
-1. **Subject Identification** - "Container ship with cargo"
-2. **Visual Description** - "Blue cargo ship with red containers on deck"
-3. **Observed Behavior** - "Ship travels left to right as user scrolls"
-4. **Technical Type** - "3d-canvas-animation" | "video-player" | "svg-path-animation"
-5. **Trigger Mechanism** - "scroll position 0-100%" | "hover" | "click"
-6. **Property Changes** - "translateX: -100px → 1500px" | "opacity: 0 → 1"
-7. **Suggested Implementation** - "Three.js with ScrollTrigger" | "CSS 3D transforms"
-8. **Code Hint** - Pseudo-code or actual snippet
-
-**Example:**
+**❌ FORBIDDEN: Abstract Classification**
 ```json
 {
   "animation": {
-    "subject": "container ship",
-    "visualDescription": "Blue cargo ship with red containers",
     "type": "3d-canvas-animation",
-    "observedBehavior": "Ship moves horizontally with scroll",
-    "implementation": "Three.js scene with ScrollTrigger",
-    "properties": "translateX(-100px → 1500px)",
-    "codeHint": "gsap.to(shipMesh.position, { x: 5, scrollTrigger: { scrub: true } })"
+    "description": "3D animation effect"
   }
 }
 ```
+→ Developer cannot implement this
 
-### Checkpoint Logging Format
+**✅ REQUIRED: Concrete Implementation Details**
+```json
+{
+  "animation": {
+    "subject": "파란색 화물선과 빨간색 컨테이너 3개",
+    "visualDescription": "Blue cargo ship body with 3 red containers on deck, white cabin",
+    "observedBehavior": "스크롤 0-100% 구간에서 화면 왼쪽(-100px)에서 오른쪽(1500px)으로 수평 이동. 배 위 컨테이너가 2초 주기로 상하 미세 흔들림 (translateY: -5px ~ +5px)",
+    "type": "3d-canvas-animation",
+    "trigger": "scroll position 0-100%",
+    "technicalImplementation": "Three.js GLTFLoader + GSAP ScrollTrigger { scrub: true }",
+    "propertyChanges": "translateX: -100px → 1500px, translateY: -5px ↔ +5px (sine wave)",
+    "codeHint": "gsap.to(shipMesh.position, { x: 15, scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 1.5 } }); // + sine wave animation for containers"
+  }
+}
+```
+→ Developer can implement immediately
+
+### 8-Field Documentation Template (MANDATORY)
+
+For EVERY animation, interaction, or complex feature, include ALL 8 fields:
+
+1. **subject** - "Container ship with cargo" (what is animating)
+2. **visualDescription** - "Blue cargo ship with red containers" (visual appearance)
+3. **observedBehavior** - "Ship travels left to right as user scrolls" (what happens)
+4. **type** - "3d-canvas-animation" | "video-player" | "svg-path-animation" (technical category)
+5. **trigger** - "scroll position 0-100%" | "hover" | "click" (what causes it)
+6. **technicalImplementation** - "Three.js with ScrollTrigger" | "CSS 3D transforms" (how to build)
+7. **propertyChanges** - "translateX: -100px → 1500px" | "opacity: 0 → 1" (CSS/JS changes)
+8. **codeHint** - Pseudo-code or actual snippet (implementation example)
+
+### 8-Field Documentation Template (MANDATORY)
+
+For EVERY animation, interaction, or complex feature, include ALL 8 fields:
+
+1. **subject** - "Container ship with cargo" (what is animating)
+2. **visualDescription** - "Blue cargo ship with red containers" (visual appearance)
+3. **observedBehavior** - "Ship travels left to right as user scrolls" (what happens)
+4. **type** - "3d-canvas-animation" | "video-player" | "svg-path-animation" (technical category)
+5. **trigger** - "scroll position 0-100%" | "hover" | "click" (what causes it)
+6. **technicalImplementation** - "Three.js with ScrollTrigger" | "CSS 3D transforms" (how to build)
+7. **propertyChanges** - "translateX: -100px → 1500px" | "opacity: 0 → 1" (CSS/JS changes)
+8. **codeHint** - Pseudo-code or actual snippet (implementation example)
+
+### Real-World Example Comparison
+
+**❌ BAD (Abstract):**
+```
+Checkpoint 5 - Animation detected: 3D effect
+```
+
+**✅ GOOD (Concrete):**
+```
+=== CHECKPOINT 5 ===
+🎬 ANIMATION DETECTION:
+- Subject: 컨테이너 화물선 (파란색 선체 + 빨간색 컨테이너 3개 + 흰색 선실)
+- Visual Description: Blue cargo ship body, 3 red containers stacked on deck, white cabin on top
+- Observed Behavior: 스크롤 다운 시 왼쪽에서 오른쪽으로 수평 이동 (~1600px travel). 동시에 배 위 컨테이너가 2초 주기로 미세 상하 흔들림 (파도 효과)
+- Trigger: scroll position 0% → 100% (hero section)
+- Technical Details: Three.js scene with GLTF model + GSAP ScrollTrigger { scrub: true }
+- Property Changes: 
+  - translateX: -100px (left offscreen) → 1500px (right offscreen)
+  - translateY: -5px ↔ +5px (sine wave, 2s period)
+- Implementation Hint:
+  ```javascript
+  // Load ship model
+  const loader = new GLTFLoader();
+  loader.load('ship.gltf', (gltf) => {
+    const ship = gltf.scene;
+    
+    // Scroll animation
+    gsap.to(ship.position, {
+      x: 15,
+      scrollTrigger: {
+        trigger: '.hero-section',
+        start: 'top top',
+        end: 'bottom top',
+        scrub: 1.5
+      }
+    });
+    
+    // Container wave effect
+    gsap.to(ship.children[0].position, {
+      y: 0.5,
+      duration: 2,
+      repeat: -1,
+      yoyo: true,
+      ease: 'sine.inOut'
+    });
+  });
+  ```
+```
+
+### Checkpoint Logging Format (Updated)
 
 ```json
 {
@@ -554,10 +654,14 @@ await mcp_kapture_keypress({ tabId, key: "ArrowDown" }); // Primary scroll (smal
   "changeType": "structural|visual|animation",
   "detectedFeatures": [
     {
-      "type": "scroll-animation",
-      "subject": "container ship",
-      "visualDescription": "Blue cargo ship with red containers",
-      "technicalNote": "GSAP ScrollTrigger with scrub:true, parallax effect"
+      "subject": "container ship with cargo",
+      "visualDescription": "Blue cargo ship body, 3 red containers, white cabin",
+      "observedBehavior": "Horizontal scroll-linked movement + vertical wave motion",
+      "type": "3d-canvas-animation",
+      "trigger": "scroll position 0-100%",
+      "technicalImplementation": "Three.js GLTFLoader + GSAP ScrollTrigger",
+      "propertyChanges": "translateX(-100px → 1500px), translateY(-5px ↔ +5px)",
+      "codeHint": "gsap.to(shipMesh.position, { x: 15, scrollTrigger: { scrub: true } }) + sine wave"
     }
   ]
 }
@@ -907,6 +1011,23 @@ const totalSections = spec.sections.length;
 
 ## Version History
 
+- **v2.9.0** (2025-01-16): Real-Time File Append Architecture
+  - **Critical:** Restructured Step 4 to prioritize file writes over memory operations
+  - Changed from single large write to progressive append operations (4-1 → 4-2 → 4-3 → 4-4 → 4-5)
+  - File write sequence: Header → Visual Analysis → Animation → Interaction Test → Results
+  - Each analysis component writes immediately after completion (no batching)
+  - Removed Steps 5-6 (consolidated into Step 4's append operations)
+  - **Result:** Ensures checkpoint data persists incrementally, prevents memory overflow, enables real-time progress monitoring
+  - **Reason:** Large pages (100+ checkpoints) caused memory issues with batch writes
+- **v2.8.0** (2025-01-15): Real-Time Analysis Logging & Concrete Documentation
+  - **Critical:** Added 00_analysis_note.txt real-time logging system
+  - Integrated checkpoint-by-checkpoint documentation into Progressive Scroll Analysis
+  - Added mandatory 8-field template for animations/interactions (subject, visualDescription, observedBehavior, type, trigger, technicalImplementation, propertyChanges, codeHint)
+  - Updated Pipeline Details: 01_contents and 02_style now read from 00_analysis_note.txt
+  - Added concrete vs abstract examples to prevent information loss
+  - Enhanced JSON schema with implementation-ready descriptions
+  - **Result:** Prevents detail loss from analysis to JSON generation, ensures developer-implementable specifications
+  - **Reason:** Previous system lost critical implementation details during JSON generation phase
 - **v2.7.0** (2025-01-14): Documentation Optimization & Deduplication
   - **Critical:** Reduced file size from 1057 lines to 773 lines (27% reduction)
   - Removed 150+ lines of verbose JSON examples while preserving core templates
