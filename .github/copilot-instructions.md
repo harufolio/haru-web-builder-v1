@@ -541,7 +541,7 @@ await mcp_kapture_keypress({ tabId, key: "ArrowDown" }); // Primary scroll (smal
 |---------|----------|--------|-------------|
 | **`/web`** | Web Development | 2 Analysis Files | Web exploration + content analysis + style analysis (AUTO-STOP) |
 | **`/integrate`** | Integration | 1 Integration File | Merge analyses into unified spec (MANUAL REQUEST ONLY) |
-| **`/generate`** | Code Generation | HTML/CSS Files | Generate production code (MANUAL REQUEST ONLY) |
+| **`/generate`** | Code Generation | React/TypeScript Files | Generate production components (MANUAL REQUEST ONLY) |
 
 ### Command Detection
 
@@ -674,263 +674,338 @@ Step 5: STOP (do NOT attempt to generate JSON manually)
 - ❌ Token limit hit during each section generation
 
 #### 04. Code Generation
-- **Method:** PowerShell HTML generator script (see below)
-- **Option A:** Tailwind Single-Page → `scripts/generate_html.ps1`
-- **Option B:** (Future) React Components → `scripts/generate_react.ps1`
+- **Method:** Component-Based 3-Pass Generation (see below)
+- **Output:** React/Next.js components with Tailwind CSS
+- **Format:** TypeScript + JSX/TSX files
 
-#### 04-0. HTML Generation Method (MANDATORY) - UPDATED v2.17.0
+#### 04-0. HTML Generation Method (MANDATORY) - UPDATED v2.18.0
 
-**⚠️ CRITICAL: Use Incremental Template Building (A-1 Method)**
+**⚠️ CRITICAL: Component-Based 3-Pass Generation**
 
 ### **Problem Analysis:**
-- **Previous method:** Single PowerShell script with generic templates
-- **Result:** 70% data loss (1229 lines → 367 lines)
-- **Root cause:** Templates too simple, complex features ignored
+- **Previous method:** PowerShell 18-Task sequential execution
+- **Result:** AI stops midway, requires user confirmation between tasks
+- **Root cause:** Single monolithic generation process, token pressure
 
-### **NEW Solution: Complete Segmentation (A-1 Option)**
+### **NEW Solution: Component-Based 3-Pass (Incremental Approach)**
 
-**Core Principle:** Build each section type as a dedicated, fully-featured template function
+**Core Principle:** Generate ONE component at a time with THREE quality passes per component
 
-**AI MUST follow this workflow automatically (NO manual intervention between tasks):**
+**AI MUST follow this workflow WITH user confirmation after each component:**
 
 ```
-Task 1: Helper Functions → Task 2: Hero Template → Task 3: Feature Template → ... → Task 18: Final Integration
+Phase 1: Foundation → Phase 2: Component Generation (per section) → Phase 3: Assembly
 ```
 
-**DO NOT wait for user confirmation between tasks. Execute sequentially.**
+**User confirms completion of EACH component before proceeding to next.**
 
 ---
 
-### **Mandatory Task Sequence (Auto-Execute)**
+### **Phase 1: Foundation (One-Time Setup)**
 
-#### **Phase 1: Foundation (Tasks 1-2)**
+**Task 1-1: Generate TypeScript Types**
+```typescript
+// types/sections.ts
+// Generated from 03_integrate_web.json
 
-**Task 1: PowerShell Helper Functions**
-```powershell
-# Add to scripts/generate_html.ps1
-
-function Get-NestedProperty {
-    param($Object, $Path)
-    # Navigate JSON structure: "section.visual.type"
+export interface SectionBase {
+  id: string;
+  type: string;
+  style?: Record<string, any>;
 }
 
-function ConvertTo-TailwindClass {
-    param($StyleObject)
-    # Convert: { fontSize: "60-72px", color: "#FF6635" } 
-    # → "text-6xl md:text-7xl text-[#FF6635]"
+export interface HeroSection extends SectionBase {
+  type: "hero-section";
+  heading: string;
+  buttons: {
+    primary: { text: string; href: string };
+    secondary: { text: string; href: string };
+  };
+  visual?: {
+    type: string;
+    codeHint?: string;
+  };
+  bottomContent?: Array<{
+    type: string;
+    heading: string;
+    description: string;
+  }>;
+  integrations?: Array<{ name: string; logo: string }>;
 }
 
-function Render-HtmlElement {
-    param($ElementType, $Attributes, $Content, $Children)
-    # Recursive rendering with proper nesting
+// ... (generate interfaces for ALL section types from JSON)
+```
+
+**Task 1-2: Generate Component Structure Document**
+```markdown
+// docs/component_structure.md
+
+# Component Mapping (from 03_integrate_web.json)
+
+## Sections → Components
+
+1. hero-section → components/HeroSection.tsx
+2. feature-section → components/FeatureSection.tsx
+3. workflow-section → components/WorkflowSection.tsx
+4. validation-section → components/ValidationSection.tsx
+5. feature-showcase → components/FeatureShowcase.tsx
+6. two-column-features → components/TwoColumnFeatures.tsx
+7. onboarding-steps → components/OnboardingSteps.tsx
+8. security-section → components/SecuritySection.tsx
+9. feature-cards → components/FeatureCards.tsx
+10. banner → components/Banner.tsx
+11. cta-section → components/CTASection.tsx
+12. faq-section → components/FAQSection.tsx
+13. footer → components/Footer.tsx
+
+Total: 13 components (+ 1 main page)
+```
+
+**Task 1-3: Create UI Rules Document**
+```markdown
+// docs/ui_rules.md (see separate section below for full content)
+```
+
+**Completion Check:**
+```
+✅ Phase 1 완료
+- types/sections.ts (X interfaces)
+- docs/component_structure.md (13 components 매핑)
+- docs/ui_rules.md (구현 규칙)
+
+다음: HeroSection 컴포넌트 생성을 시작합니다.
+```
+
+---
+
+### **Phase 2: Component Generation (Per Section)**
+
+**For EACH section in 03_integrate_web.json.sections, execute 3 passes:**
+
+#### **Pass 1: JSX Structure + Data Mapping**
+
+**AI creates component file with basic structure:**
+
+```tsx
+// components/HeroSection.tsx
+import React from 'react';
+import { HeroSection as HeroSectionType } from '@/types/sections';
+
+export function HeroSection({ data }: { data: HeroSectionType }) {
+  return (
+    <section className="hero-section">
+      {/* 1. Main heading */}
+      <h1>{data.heading}</h1>
+      
+      {/* 2. CTA buttons */}
+      <div className="buttons">
+        <a href={data.buttons.primary.href}>{data.buttons.primary.text}</a>
+        <a href={data.buttons.secondary.href}>{data.buttons.secondary.text}</a>
+      </div>
+      
+      {/* 3. 3D visual (placeholder) */}
+      {data.visual && <div className="visual-placeholder">3D Visual Here</div>}
+      
+      {/* 4. Bottom content */}
+      {data.bottomContent?.map((item, i) => (
+        <div key={i}>
+          <h3>{item.heading}</h3>
+          <p>{item.description}</p>
+        </div>
+      ))}
+      
+      {/* 5. Integrations */}
+      {data.integrations && (
+        <div className="integrations">
+          {data.integrations.map((int, i) => (
+            <span key={i}>{int.name}</span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
 }
 ```
 
-**Task 2: Section Renderer Infrastructure**
-```powershell
-function Render-Section {
-    param($Section)
-    
-    switch ($Section.type) {
-        "hero-section" { Render-HeroSection $Section }
-        "feature-section" { Render-FeatureSection $Section }
-        "workflow-section" { Render-WorkflowSection $Section }
-        # ... (14 types total)
+**Output:** "✅ Pass 1/3 완료 (뼈대) - 모든 JSON 필드 매핑됨. 계속할까요?"
+
+#### **Pass 2: Tailwind Styling**
+
+**AI adds Tailwind classes based on data.style:**
+
+```tsx
+export function HeroSection({ data }: { data: HeroSectionType }) {
+  const { style } = data;
+  
+  return (
+    <section 
+      className="relative min-h-screen flex items-center justify-center"
+      style={{ backgroundColor: style?.background }}
+    >
+      {/* 1. Main heading with responsive typography */}
+      <h1 className={`
+        text-6xl md:text-7xl 
+        font-bold 
+        leading-tight
+        ${style?.heading?.color ? `text-[${style.heading.color}]` : 'text-white'}
+      `}>
+        {data.heading}
+      </h1>
+      
+      {/* 2. CTA buttons with hover effects */}
+      <div className="flex gap-4 mt-8">
+        <a 
+          href={data.buttons.primary.href}
+          className="px-8 py-4 bg-white text-black rounded-lg font-semibold hover:scale-105 transition"
+        >
+          {data.buttons.primary.text}
+        </a>
+        <a 
+          href={data.buttons.secondary.href}
+          className="px-8 py-4 bg-[#FF6635] text-white rounded-lg font-semibold hover:scale-105 transition"
+        >
+          {data.buttons.secondary.text}
+        </a>
+      </div>
+      
+      {/* ... (나머지 요소도 스타일링) */}
+    </section>
+  );
+}
+```
+
+**Output:** "✅ Pass 2/3 완료 (스타일링) - Tailwind 적용됨. 계속할까요?"
+
+#### **Pass 3: Validation + codeHint Insertion**
+
+**AI verifies JSON compliance and inserts animation code:**
+
+```tsx
+export function HeroSection({ data }: { data: HeroSectionType }) {
+  const { style } = data;
+  
+  React.useEffect(() => {
+    // Insert codeHint directly (NO interpretation)
+    if (data.visual?.codeHint) {
+      // EXAMPLE: data.visual.codeHint contains GSAP/Three.js code
+      eval(data.visual.codeHint); // Or better: parse and execute safely
     }
+  }, [data.visual]);
+  
+  return (
+    <section className="...">
+      {/* All elements with complete styling */}
+      
+      {/* 3D visual with actual implementation */}
+      {data.visual?.type === '3d-planet-parallax' && (
+        <div id="planet-canvas" className="absolute left-0 w-1/2 h-full">
+          {/* Canvas will be created by codeHint script */}
+        </div>
+      )}
+      
+      {/* ... */}
+    </section>
+  );
 }
 ```
 
-#### **Phase 2: Section Templates (Tasks 3-15)**
+**Validation Checklist (AI outputs):**
+```
+✅ Pass 3/3 완료 (검증)
 
-**Task 3: Render-HeroSection**
-```powershell
-function Render-HeroSection {
-    param($Section)
-    
-    # MUST include ALL elements:
-    # 1. Main heading
-    # 2. CTA buttons (primary + secondary)
-    # 3. 3D Planet Parallax (if $Section.visual.type -eq "3d-planet-parallax")
-    # 4. Logo Marquee (with animation keyframe)
-    # 5. Bottom Content boxes
-    # 6. Integrations list (with green-dot indicator)
-    
-    # Insert $Section.visual.codeHint directly (NO interpretation)
-    # Insert $Section.logoMarquee.codeHint directly
+JSON 일치 확인:
+- ✅ All fields mapped: heading, buttons, visual, bottomContent, integrations
+- ✅ Style applied: background, heading (fontSize, color), buttons (padding, borderRadius)
+- ✅ codeHint preserved: data.visual.codeHint inserted without modification
+- ✅ No missing properties
+- ✅ No unused properties
+
+HeroSection 완료! 다음 컴포넌트로 진행할까요?
+```
+
+**User responds:** "yes" → AI proceeds to next section
+
+---
+
+### **Phase 3: Assembly**
+
+**Task 3-1: Generate Main Page**
+```tsx
+// pages/index.tsx
+import React from 'react';
+import { HeroSection } from '@/components/HeroSection';
+import { FeatureSection } from '@/components/FeatureSection';
+// ... (import all components)
+
+import integratedData from '@/analysis/web-pipeline/03_integrate_web.json';
+
+export default function Home() {
+  const sections = integratedData.sections;
+  
+  return (
+    <main>
+      {sections.map((section, index) => {
+        switch (section.type) {
+          case 'hero-section':
+            return <HeroSection key={index} data={section} />;
+          case 'feature-section':
+            return <FeatureSection key={index} data={section} />;
+          // ... (map all section types)
+          default:
+            return null;
+        }
+      })}
+    </main>
+  );
 }
 ```
 
-**Task 4: Render-FeatureSection**
-```powershell
-function Render-FeatureSection {
-    param($Section)
+**Task 3-2: Collect Animation Scripts**
+```tsx
+// components/AnimationLoader.tsx
+import React from 'react';
+
+export function AnimationLoader({ sections }) {
+  React.useEffect(() => {
+    // Collect all codeHints
+    const animationScripts = sections
+      .filter(s => s.visual?.codeHint || s.animation?.codeHint)
+      .map(s => s.visual?.codeHint || s.animation?.codeHint);
     
-    # MUST include:
-    # 1. Badge (if exists)
-    # 2. Heading + Subheading
-    # 3. Code Snippet Preview (if $Section.visual.type -eq "code-snippet-preview")
-    # 4. Action Buttons (with color-coded borders)
-    # 5. Visual element (insert codeHint)
+    // Detect required libraries
+    const needsGSAP = animationScripts.some(s => s.includes('gsap'));
+    const needsThree = animationScripts.some(s => s.includes('THREE'));
+    
+    // Load libraries dynamically
+    if (needsGSAP) loadScript('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js');
+    if (needsThree) loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js');
+    
+    // Execute all animation code
+    animationScripts.forEach(script => eval(script));
+  }, [sections]);
+  
+  return null;
 }
 ```
 
-**Task 5: Render-WorkflowSection**
-```powershell
-function Render-WorkflowSection {
-    param($Section)
-    
-    # MUST include:
-    # 1. Badge + Heading + Subheading
-    # 2. Step Cards (iterate $Section.stepCards)
-    #    - Step number badge
-    #    - Title + Subtitle
-    #    - Details list (properly formatted bullets)
-    #    - Icons (checkmark, x)
-    # 3. Sequential animation (insert $Section.animation.codeHint)
-}
+**Task 3-3: Final Validation**
 ```
+✅ Phase 3 완료
 
-**Task 6: Render-ValidationSection**
-```powershell
-function Render-ValidationSection {
-    param($Section)
-    
-    # Validation-specific layout
-}
-```
+생성된 파일:
+- pages/index.tsx (1 파일)
+- components/*.tsx (13 파일)
+- types/sections.ts (1 파일)
+- docs/component_structure.md (1 파일)
+- docs/ui_rules.md (1 파일)
 
-**Task 7: Render-FeatureShowcase**
-```powershell
-function Render-FeatureShowcase {
-    param($Section)
-    
-    # Large visual showcase layout
-}
-```
+총: 17개 파일
 
-**Task 8: Render-TwoColumnFeatures**
-```powershell
-function Render-TwoColumnFeatures {
-    param($Section)
-    
-    # Left/right split layout
-}
-```
-
-**Task 9: Render-OnboardingSteps**
-```powershell
-function Render-OnboardingSteps {
-    param($Section)
-    
-    # Numbered steps with progression
-}
-```
-
-**Task 10: Render-SecuritySection**
-```powershell
-function Render-SecuritySection {
-    param($Section)
-    
-    # Security badges and certifications
-}
-```
-
-**Task 11: Render-FeatureCards**
-```powershell
-function Render-FeatureCards {
-    param($Section)
-    
-    # Grid of feature cards
-}
-```
-
-**Task 12: Render-Banner**
-```powershell
-function Render-Banner {
-    param($Section)
-    
-    # Full-width banner
-}
-```
-
-**Task 13: Render-CTASection**
-```powershell
-function Render-CTASection {
-    param($Section)
-    
-    # Call-to-action layout
-}
-```
-
-**Task 14: Render-FAQSection**
-```powershell
-function Render-FAQSection {
-    param($Section)
-    
-    # MUST include:
-    # 1. Heading
-    # 2. Accordion structure (<details> elements)
-    # 3. Q&A pairs from $Section.faqs (if exists)
-    # 4. Animation (insert codeHint)
-}
-```
-
-**Task 15: Render-Footer**
-```powershell
-function Render-Footer {
-    param($Section)
-    
-    # MUST include:
-    # 1. Newsletter form ($Section.newsletter)
-    # 2. Navigation columns ($Section.columns)
-    # 3. Social icons ($Section.socialIcons)
-    # 4. Legal links ($Section.legal.links)
-    # 5. Copyright ($Section.legal.copyright)
-}
-```
-
-#### **Phase 3: Integration (Tasks 16-18)**
-
-**Task 16: Animation Script Builder**
-```powershell
-function Build-AnimationScripts {
-    param($Sections)
-    
-    $needsGSAP = $false
-    $needsThree = $false
-    $animationCode = ""
-    
-    foreach ($section in $Sections) {
-        # Check section.visual.codeHint
-        # Check section.animation.codeHint
-        # Detect library requirements
-        # Accumulate all animation code
-    }
-    
-    # Return: library CDNs + complete <script> block
-}
-```
-
-**Task 17: UTF-8 Encoding Fix**
-```powershell
-# Ensure all file operations use:
-Set-Content -Path $path -Value $html -Encoding UTF8 -NoNewline
-
-# Replace bullet points properly:
-$text = $text -replace '•', '&bull;'
-$text = $text -replace '→', '&rarr;'
-```
-
-**Task 18: Final Integration**
-```powershell
-# Main script flow:
-1. Load 03_integrate_web.json
-2. Generate HTML head
-3. For each section: Call Render-Section($section)
-4. Build animation scripts
-5. Close HTML
-6. Write with UTF-8
-7. Validate (14 sections, all animations, all features)
+검증:
+- ✅ 모든 섹션 렌더링됨 (13/13)
+- ✅ 모든 codeHint 삽입됨 (16/16)
+- ✅ 필요한 라이브러리 자동 로드 (GSAP, Three.js)
+- ✅ TypeScript 타입 안전성 확보
 ```
 
 ---
@@ -938,35 +1013,40 @@ $text = $text -replace '→', '&rarr;'
 ### **Execution Rules**
 
 **AI MUST:**
-1. ✅ Execute all 18 tasks sequentially WITHOUT pausing
-2. ✅ After each task, immediately proceed to next
-3. ✅ Use manage_todo_list to track progress
-4. ✅ Report completion after each task: "✅ Task X/18 complete"
-5. ✅ Continue until all 18 tasks done
+1. ✅ Complete Phase 1 first (Foundation)
+2. ✅ For EACH component: Execute Pass 1 → Pass 2 → Pass 3
+3. ✅ WAIT for user confirmation after EACH component completion
+4. ✅ Report progress: "✅ Pass X/3 완료 (HeroSection). 계속할까요?"
+5. ✅ Only proceed to next component when user says "yes"
 
 **AI MUST NOT:**
-1. ❌ Wait for user confirmation between tasks
-2. ❌ Ask "should I proceed?" (just proceed)
-3. ❌ Stop after a single task
-4. ❌ Simplify or skip any task
+1. ❌ Generate multiple components without user confirmation
+2. ❌ Skip any pass (1, 2, or 3)
+3. ❌ Combine components into single file
+4. ❌ Simplify JSON data or omit fields
 
 ---
 
 ### **Expected Results**
 
-- File size: 2000-4000 lines (depends on complexity)
-- Section rendering: 100% (all 14 sections with full content)
-- Feature preservation: 95%+ (all complex features implemented)
-- Animation preservation: 100% (all codeHints inserted)
-- Text accuracy: 100% (no encoding errors)
+- File count: 17+ files (1 page + 13 components + 3 config/docs)
+- Section rendering: 100% (all sections mapped to components)
+- Feature preservation: 100% (no simplification, 3-pass quality check)
+- Animation preservation: 100% (all codeHints inserted verbatim)
+- Type safety: 100% (TypeScript interfaces from JSON)
 
 ---
 
-### **Old Method (DEPRECATED - DO NOT USE):**
-~~Single PowerShell script with generic switch statement~~
-- ❌ Caused 70% data loss
-- ❌ Complex features ignored
-- ❌ No recursive JSON navigation
+### **DEPRECATED Methods:**
+
+**❌ v2.17.0 - PowerShell 18-Task Method:**
+- Problem: AI stops midway, requires manual intervention
+- Reason: Monolithic generation, no checkpoints
+- Status: DEPRECATED as of v2.18.0
+
+**❌ v2.16.0 - Single PowerShell Script:**
+- Problem: 70% data loss (generic templates)
+- Status: DEPRECATED as of v2.17.0
 
 ---
 
@@ -1294,39 +1374,62 @@ When merging `01_contents_web.json` + `02_style_web.json` into `03_integrate_web
 
 **Command: `/generate` (Manual Request Only)**
 ```
-Step 5: Execute HTML generation script
+Step 5: Component-Based 3-Pass Generation
   ↓
-  Command: powershell -ExecutionPolicy Bypass -File "scripts\generate_html.ps1"
+Phase 1: Foundation Setup
+  - Generate TypeScript interfaces from 03_integrate_web.json
+  - Create component structure document (sections → components mapping)
+  - Create docs/ui_rules.md (implementation rules)
   ↓
-  Script performs:
-    - Load 03_integrate_web.json as object
-    - Generate HTML head with design tokens (colors, fonts)
-    - Apply section templates (hero, features, steps, cta, footer)
-    - Insert animation codeHints directly (no AI interpretation)
-    - Add required libraries (GSAP, Three.js) based on animation types
-    - Write index.html with full feature implementation
-    - Auto-validate (section count, animation count, library includes)
+Phase 2: Component Generation (Per Section)
+  For EACH section in 03_integrate_web.json.sections:
+    Pass 1: JSX Structure + Data Mapping
+      → Create component file with basic structure
+      → Map all JSON fields to JSX elements
+      → Output: "✅ Pass 1/3 완료 (뼈대). 계속할까요?"
+      → WAIT for user confirmation
+    
+    Pass 2: Tailwind Styling
+      → Add Tailwind classes based on section.style
+      → Apply responsive breakpoints (mobile → desktop)
+      → Convert ranges (60-72px → text-6xl md:text-7xl)
+      → Output: "✅ Pass 2/3 완료 (스타일링). 계속할까요?"
+      → WAIT for user confirmation
+    
+    Pass 3: Validation + codeHint Insertion
+      → Verify all JSON fields are mapped
+      → Insert codeHints verbatim (NO interpretation)
+      → Output validation checklist
+      → Output: "✅ Pass 3/3 완료 (검증). HeroSection 완료! 다음 컴포넌트로 진행할까요?"
+      → WAIT for user confirmation
   ↓
-  Expected output:
-    - File size: 1500-3000 lines (depends on complexity)
-    - Validation: PASSED (all sections rendered, all animations included)
+Phase 3: Assembly
+  - Generate pages/index.tsx (import and render all components)
+  - Generate components/AnimationLoader.tsx (collect all codeHints, load libraries)
+  - Final validation (17+ files, 100% sections, 100% animations)
   ↓
 ✅ COMPLETE
-Output: "✅ 코드 생성 완료 (2341 lines, validation PASSED)."
+Output: "✅ 코드 생성 완료 (17 files, validation PASSED)."
 ```
 
-**⚠️ CRITICAL: DO NOT use Section-by-Section manual generation**
+**⚠️ CRITICAL: Component-Based Approach (v2.18.0)**
 
-**Why PowerShell script is mandatory:**
-- AI token limit causes animation/interaction loss during HTML generation
-- Script preserves 100% of codeHints (inserts directly without interpretation)
-- Script handles template rendering without simplification
+**Why this method:**
+- AI works on ONE file at a time → No token pressure
+- 3-pass quality check → JSX, styling, validation per component
+- User confirmation checkpoints → Can verify quality incrementally
+- Never loses progress → Can stop/resume anytime
 
-**If script fails:**
-1. Check script exists: `scripts\generate_html.ps1`
-2. Check integration file exists: `03_integrate_web.json`
-3. Report error to user with full error message
-4. Do NOT attempt manual HTML generation as fallback
+**Expected Results:**
+- File count: 17+ files (1 page + 13 components + 3 config/docs)
+- Section rendering: 100% (all sections mapped to components)
+- Feature preservation: 100% (3-pass validation ensures no omissions)
+- Animation preservation: 100% (codeHints inserted verbatim)
+
+**If generation interrupted:**
+1. AI reports: "현재 X/13 컴포넌트 완료. 다음 컴포넌트부터 재개할까요?"
+2. User can resume from last checkpoint
+3. Previously generated files are preserved
 
 ---
 
@@ -1422,7 +1525,34 @@ Output: "✅ 코드 생성 완료 (2341 lines, validation PASSED)."
 
 ## Version History
 
-- **v2.17.0** (2025-01-16): Incremental Template Building - A-1 Complete Segmentation Method
+- **v2.18.0** (2025-01-16): Component-Based 3-Pass Generation (RECOMMENDED)
+  - **CRITICAL:** Replaced PowerShell monolithic generation with incremental component approach
+  - **Problem:** v2.17.0 PowerShell 18-Task method caused AI to stop midway
+    - Root cause: Single long-running process, AI requests user confirmation between tasks
+    - Result: 50% completion rate, requires manual intervention to continue
+  - **Solution:** Component-Based 3-Pass Generation (inspired by best practices)
+    - Phase 1: Foundation (TypeScript types + component structure + UI rules)
+    - Phase 2: Per-Component Generation (3 passes per section: JSX → Tailwind → Validation)
+    - Phase 3: Assembly (main page + animation loader + final validation)
+  - **Key Improvements:**
+    - ✅ File-level context focus → Improved code quality per component
+    - ✅ 3-pass quality check → JSX structure, styling, JSON validation per component
+    - ✅ User confirmation checkpoints → After each component completion
+    - ✅ Incremental progress → Never lose work, can stop/resume anytime
+    - ✅ Type safety → TypeScript interfaces from JSON schema
+  - **Expected Results:**
+    - File count: 17+ files (1 page + 13 components + 3 config/docs)
+    - Section rendering: 100% (all sections mapped to components)
+    - Feature preservation: 100% (3-pass validation ensures no field omitted)
+    - Animation preservation: 100% (codeHints inserted verbatim in Pass 3)
+    - Type safety: 100% (TypeScript interfaces prevent runtime errors)
+  - **Workflow Changes:**
+    - Updated "04-0. HTML Generation Method" with Component-Based approach
+    - Created `docs/ui_rules.md` (JSON-to-Component implementation rules)
+    - Added Phase 1-3 execution model with user confirmation
+    - Marked v2.17.0 PowerShell 18-Task as "DEPRECATED"
+  - **Impact:** Eliminates AI stopping issues, ensures 100% completion rate, improves maintainability
+- **v2.17.0** (2025-01-16): Incremental Template Building - A-1 Complete Segmentation Method (DEPRECATED)
   - **CRITICAL:** Replaced single PowerShell script with 18-task sequential execution
   - **Problem:** v2.16.0 PowerShell script still caused 70% data loss (1229 → 367 lines)
     - Root cause: Generic templates couldn't handle complex JSON structures
