@@ -448,6 +448,175 @@ export function AnimatedSection({ data }) {
 }
 ```
 
+**3. GSAP ScrollTrigger Initialization → MANDATORY Timing Control**
+
+⚠️ **CRITICAL ISSUE: ScrollTrigger Registration Timing**
+
+**Problem:**
+When ScrollTrigger animations are registered, they calculate initial `progress` based on **current scroll position**. If the page loads with a restored scroll position (browser remembers previous scroll), animations may start at 100% instead of 0%.
+
+**Root Cause:**
+```javascript
+// ❌ WRONG ORDER (causes progress = 100% on load)
+1. Create ScrollTrigger animations (reads current scroll position)
+2. window.scrollTo(0, 0) (too late - progress already calculated)
+3. ScrollTrigger.refresh()
+
+// Result: Animations appear "already finished" and won't respond to scroll
+```
+
+**✅ REQUIRED: Correct Initialization Order**
+
+```javascript
+// ✅ CORRECT ORDER
+(function() {
+  function initAnimation() {
+    // 1. Reset scroll position FIRST
+    window.scrollTo(0, 0);
+    console.log('📜 Scroll reset to top');
+    
+    // 2. Wait for scroll to complete (50ms minimum)
+    setTimeout(() => {
+      // 3. NOW create ScrollTrigger animations
+      gsap.to(element, {
+        // ... animation properties
+        scrollTrigger: {
+          trigger: section,
+          start: 'top 80%',
+          end: 'top 20%',
+          scrub: true,
+          onUpdate: (self) => {
+            console.log('Progress:', self.progress); // Should start at 0%
+          }
+        }
+      });
+      
+      // 4. Refresh ScrollTrigger
+      ScrollTrigger.refresh();
+    }, 50); // Critical delay for scroll completion
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAnimation);
+  } else {
+    setTimeout(initAnimation, 100);
+  }
+})();
+```
+
+**Key Rules:**
+
+1. **ALWAYS call `window.scrollTo(0, 0)` BEFORE creating ScrollTrigger animations**
+2. **Add 50ms setTimeout AFTER scrollTo** to ensure scroll completes
+3. **Create animations inside the setTimeout callback**
+4. **Call `ScrollTrigger.refresh()` after all animations are created**
+5. **Use IIFE pattern** `(function() { ... })()` to avoid variable conflicts
+
+**Debugging Checklist:**
+
+```javascript
+// Add these logs to verify correct initialization
+console.log('🔧 Animation initializing...');
+window.scrollTo(0, 0);
+console.log('📜 Scroll reset to top');
+
+setTimeout(() => {
+  // Create animations here
+  
+  gsap.to(element, {
+    scrollTrigger: {
+      // ...
+      onUpdate: (self) => {
+        // Should log 0% on first call
+        console.log(`📊 Progress: ${(self.progress * 100).toFixed(0)}%`);
+      }
+    }
+  });
+  
+  ScrollTrigger.refresh();
+  console.log('✅ ScrollTrigger refreshed');
+}, 50);
+```
+
+**Expected Console Output (Correct):**
+```
+🔧 Animation initializing...
+📜 Scroll reset to top
+✅ ScrollTrigger refreshed
+📊 Progress: 0%  ← Should start at 0%, not 100%
+```
+
+**If you see `Progress: 100%` immediately, the timing is WRONG.**
+
+**Common Mistake to Avoid:**
+```javascript
+// ❌ WRONG: Creating animations before scroll reset
+gsap.to(element, { scrollTrigger: { ... } });
+window.scrollTo(0, 0); // Too late!
+
+// ❌ WRONG: No delay after scrollTo
+window.scrollTo(0, 0);
+gsap.to(element, { scrollTrigger: { ... } }); // Scroll not complete yet
+
+// ❌ WRONG: Refresh before animations created
+ScrollTrigger.refresh();
+gsap.to(element, { scrollTrigger: { ... } }); // Refresh has no effect
+```
+
+**When to Use This Pattern:**
+
+- ✅ ANY page with ScrollTrigger animations
+- ✅ SPAs that restore scroll position on route change
+- ✅ Pages with multiple scroll-linked animations
+- ✅ Complex animations with rotation, parallax, or morphing
+
+**When NOT Needed:**
+
+- ❌ Simple CSS transitions (no ScrollTrigger)
+- ❌ Click-triggered animations (no scroll involvement)
+- ❌ Static elements with no scroll interaction
+
+**Template for All ScrollTrigger Code:**
+
+```javascript
+// MANDATORY: Use this pattern for ALL ScrollTrigger implementations
+(function() {
+  function initScrollAnimation() {
+    // Step 1: Reset scroll
+    window.scrollTo(0, 0);
+    
+    // Step 2: Wait for scroll completion
+    setTimeout(() => {
+      // Step 3: Create all animations here
+      const elements = document.querySelectorAll('.animated');
+      
+      elements.forEach(element => {
+        gsap.to(element, {
+          // animation properties
+          scrollTrigger: {
+            trigger: element,
+            start: 'top 80%',
+            end: 'bottom 20%',
+            scrub: true
+          }
+        });
+      });
+      
+      // Step 4: Refresh
+      ScrollTrigger.refresh();
+    }, 50);
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initScrollAnimation);
+  } else {
+    setTimeout(initScrollAnimation, 100);
+  }
+})();
+```
+
+**⚠️ This timing issue is the #1 cause of "animation not working" bugs. ALWAYS follow this pattern.**
+
 ### ⚠️ CRITICAL: PBR Material Performance Optimization (MANDATORY)
 
 **🎯 Core Principle: Prevent GPU Bottleneck from PBR Shaders**
